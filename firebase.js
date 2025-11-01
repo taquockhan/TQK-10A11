@@ -1,6 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
 import { getFirestore } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
-// THÊM: Import getStorage
+// Import getStorage
 import { getStorage } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-storage.js";
 
 const firebaseConfig = {
@@ -19,7 +19,7 @@ const app = initializeApp(firebaseConfig);
 // Khởi tạo và xuất Firestore
 const db = getFirestore(app);
 
-// THÊM: Khởi tạo và xuất Storage
+// Khởi tạo và xuất Storage
 const storage = getStorage(app);
 
 // Xuất các module cần thiết
