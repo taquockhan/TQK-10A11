@@ -1,9 +1,10 @@
 // main.js
-// SỬA: Import thêm 'images' và 'events' để dùng cho backup
-import { loadImages, addImage, deleteImage, renderImages, images } from "./images.js";
+
+// SỬA: Import 'uploadFile' (hàm tải tệp mới) thay thế cho 'addImage'
+import { loadImages, uploadFile, deleteImage, renderImages, images } from "./images.js"; 
 import { loadEvents, addEvent, deleteEvent, renderEvents, events } from "./events.js";
 import { birthdays, renderBirthdays, checkBirthday } from "./birthday.js";
-import { renderGame } from "./game.js"; // SỬA: Bỏ import initGame
+import { renderGame } from "./game.js"; 
 import { initMusic } from "./music.js";
 
 const content = document.getElementById("content");
@@ -28,7 +29,6 @@ const pages = {
 // Backup dữ liệu
 export function backupData() {
   const data = {
-    // SỬA: Dùng 'images' và 'events' đã import, thay vì window.
     images: images || [],
     events: events || [],
     birthdays,
@@ -48,7 +48,8 @@ export function backupData() {
 window.backupData = backupData;
 window.addEvent = addEvent;
 window.deleteEvent = deleteEvent;
-window.addImage = addImage;
+// 🌟 SỬA QUAN TRỌNG: Gắn hàm uploadFile thay vì addImage
+window.uploadFile = uploadFile; 
 window.deleteImage = deleteImage;
 // --------------------------------------------------------
 
@@ -61,17 +62,20 @@ export async function loadPage(page) {
     case "images":
       await loadImages();
       content.innerHTML = renderImages();
+      // Các hàm hỗ trợ được gọi từ nút bấm trong renderImages()
       break;
     case "events":
       await loadEvents();
       content.innerHTML = renderEvents();
+      // Các hàm hỗ trợ được gọi từ nút bấm trong renderEvents()
       break;
-    case "birthday":
+    case "birthdays": // Tên page nên khớp với key trong pages object
       content.innerHTML = renderBirthdays();
+      // 🌟 NÊN: gọi lại checkBirthday() sau khi load trang để đảm bảo UI/UX
+      checkBirthday(); 
       break;
     case "game":
       content.innerHTML = renderGame();
-      // SỬA LỖI SỐ 2: Xóa 'initGame()' ở đây vì 'renderGame' đã tự gọi
       break;
     default:
       content.innerHTML = pages.home.html;
@@ -90,16 +94,18 @@ navLinks.forEach(link => link.addEventListener("click", e => {
 // Init
 (async function init() {
   initMusic();      // Nút nhạc
-  checkBirthday();  // Kiểm tra sinh nhật hôm nay
+  // checkBirthday(); // Đã chuyển vào init() và loadPage("birthdays") để kiểm tra toàn diện hơn
 
   // --- SỬA LỖI SỐ 3: Thêm code cho nút Lên Đầu Trang ---
   const topBtn = document.getElementById("top-btn");
-  topBtn.addEventListener("click", () => {
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  });
-  window.addEventListener("scroll", () => {
-    topBtn.classList.toggle("show", window.scrollY > 200);
-  });
+  if (topBtn) { // Kiểm tra topBtn có tồn tại
+    topBtn.addEventListener("click", () => {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    });
+    window.addEventListener("scroll", () => {
+      topBtn.classList.toggle("show", window.scrollY > 200);
+    });
+  }
   // --------------------------------------------------
 
   await loadPage("home");
