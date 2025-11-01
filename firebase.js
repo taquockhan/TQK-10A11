@@ -1,5 +1,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
 import { getFirestore } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+// THÊM: Import getStorage
+import { getStorage } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-storage.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCfSdE414STdSaJSVYp0Ej-jFBelLYWFQ4",
@@ -11,7 +13,14 @@ const firebaseConfig = {
   measurementId: "G-40LK8ZB0C6"
 };
 
+// Khởi tạo ứng dụng Firebase
 const app = initializeApp(firebaseConfig);
+
+// Khởi tạo và xuất Firestore
 const db = getFirestore(app);
 
-export { db };
+// THÊM: Khởi tạo và xuất Storage
+const storage = getStorage(app);
+
+// Xuất các module cần thiết
+export { db, storage };
