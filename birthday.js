@@ -53,8 +53,9 @@ export function checkBirthday() {
   const today = new Date().toISOString().slice(5,10);
   birthdays.forEach(b => {
     if (b.date.slice(5) === today) {
-      alert(`🎉 Hôm nay là sinh nhật của ${b.name}!`);
+      alert(`🎉 Chúc Mừng Sinh Nhật ${b.name}!`);
       new Audio("happy-birthday.mp3").play();
     }
   });
 }
+
