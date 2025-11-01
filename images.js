@@ -4,23 +4,20 @@ import {
   getDocs, 
   addDoc, 
   deleteDoc, 
-  doc 
+  doc,
+  serverTimestamp // Import serverTimestamp cho việc ghi nhận ngày giờ
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
-// THÊM: Import ServerTimestamp để lấy thời gian chính xác từ Firebase
-import { 
-    serverTimestamp 
-} from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js"; 
 
 import { 
   ref, 
-  uploadBytes, 
+  uploadBytesResumable, // 🌟 QUAN TRỌNG: Dùng API này để theo dõi tiến trình
   getDownloadURL 
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-storage.js";
 
 export let images = [];
 
 // =================================================================
-// TẢI DỮ LIỆU TỪ FIRESTORE (Không thay đổi)
+// TẢI DỮ LIỆU TỪ FIRESTORE
 // =================================================================
 
 export async function loadImages() {
@@ -30,11 +27,11 @@ export async function loadImages() {
 }
 
 // =================================================================
-// HIỂN THỊ GIAO DIỆN (Sửa để hiển thị ngày tải lên)
+// HIỂN THỊ GIAO DIỆN
 // =================================================================
 
 export function renderImages() {
-  let html = `<div class='card'><h2>🖼 Hình ảnh/Video lớp</h2><div class='gallery'>`;
+  let html = `<div class='card'><h2>🖼 Hình ảnh/Video lớp</h2><div id='uploadStatus'></div><div class='gallery'>`; // Thêm div uploadStatus
   
   images.forEach((img, i) => {
     const isVideo = img.type && img.type.startsWith('video/');
@@ -42,15 +39,12 @@ export function renderImages() {
       ? `<video controls src='${img.url}' alt='Media ${i+1}'></video>`
       : `<img src='${img.url}' alt='Ảnh ${i+1}'>`;
 
-    // CHUYỂN ĐỔI TIMESTAMP THÀNH NGÀY/GIỜ
+    // Chuyển đổi Firestore Timestamp sang chuỗi ngày giờ
     let dateString = 'Chưa rõ';
     if (img.uploadedAt && img.uploadedAt.toDate) {
-        // Chuyển đổi Firestore Timestamp thành đối tượng Date của JS
         const date = img.uploadedAt.toDate();
-        // Định dạng ngày tháng
         dateString = date.toLocaleDateString("vi-VN") + ' ' + date.toLocaleTimeString("vi-VN");
     }
-
 
     html += `<div style='position:relative;'>
       ${mediaElement}
@@ -71,50 +65,73 @@ export function renderImages() {
 }
 
 // =================================================================
-// THAY THẾ: uploadFile() (Thêm serverTimestamp)
+// XỬ LÝ TẢI LÊN TỆP (CÓ TIẾN TRÌNH)
 // =================================================================
 
 export async function uploadFile(event) {
   const file = event.target.files[0];
   if (!file) return;
 
-  alert(`Bắt đầu tải lên tệp: ${file.name}... Vui lòng đợi.`); 
-
+  // 1. Hiển thị khu vực tiến trình tải lên
+  const statusDiv = document.getElementById("uploadStatus");
+  statusDiv.innerHTML = `<p>Đang tải lên: ${file.name} - <span id="uploadProgress">0</span>%</p>`;
+  
   const timeStamp = new Date().getTime();
   const storageRef = ref(storage, `uploads/${timeStamp}_${file.name}`);
-  
-  try {
-    const uploadTask = await uploadBytes(storageRef, file);
-    const url = await getDownloadURL(uploadTask.ref);
 
-    // 🌟 THAY ĐỔI QUAN TRỌNG: Thêm trường uploadedAt với serverTimestamp
-    const docRef = await addDoc(collection(db, "images"), { 
-      url: url,
-      name: file.name,
-      type: file.type,
-      uploadedAt: serverTimestamp() // <== Tự động lấy thời gian của máy chủ Firebase
-    });
+  // 2. Bắt đầu tải lên và theo dõi tiến trình
+  const uploadTask = uploadBytesResumable(storageRef, file);
 
-    // Sau khi thêm thành công, chúng ta tải lại dữ liệu từ Firestore 
-    // hoặc cập nhật mảng images với Timestamp tạm thời để hiển thị.
-    // Cách an toàn nhất là load lại dữ liệu để có Timestamp chính xác:
-    await loadImages(); 
-    document.getElementById("content").innerHTML = renderImages();
-    alert(`Tệp "${file.name}" đã tải lên thành công!`);
+  uploadTask.on('state_changed', 
+    (snapshot) => {
+        // Cập nhật giá trị tiến trình
+        const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+        document.getElementById("uploadProgress").textContent = Math.round(progress);
+    }, 
+    (error) => {
+        // Xử lý lỗi
+        console.error("Lỗi khi tải lên tệp:", error);
+        statusDiv.innerHTML = `<p style='color:red;'>Lỗi tải lên: ${error.code}</p>`;
+        alert("Có lỗi xảy ra khi tải tệp lên.");
+    }, 
+    // 3. Xử lý hoàn tất
+    async () => {
+        try {
+            const url = await getDownloadURL(uploadTask.snapshot.ref);
 
-  } catch (error) {
-    console.error("Lỗi khi tải lên tệp:", error);
-    alert("Có lỗi xảy ra khi tải tệp lên. Vui lòng kiểm tra console và quy tắc bảo mật Storage.");
-  }
+            // Lưu thông tin tệp vào Firestore
+            const docRef = await addDoc(collection(db, "images"), { 
+                url: url,
+                name: file.name,
+                type: file.type,
+                uploadedAt: serverTimestamp() // Ghi nhận thời gian
+            });
+
+            // Tải lại dữ liệu và cập nhật giao diện
+            await loadImages();
+            document.getElementById("content").innerHTML = renderImages();
+            
+            // Xóa thông báo tiến trình
+            statusDiv.innerHTML = ''; 
+            alert(`Tệp "${file.name}" đã tải lên thành công!`);
+
+        } catch (error) {
+            console.error("Lỗi khi lưu vào Firestore:", error);
+            statusDiv.innerHTML = `<p style='color:red;'>Lỗi lưu trữ dữ liệu!</p>`;
+        }
+    }
+  );
 }
 
 // =================================================================
-// XỬ LÝ XÓA (Giữ nguyên)
+// XỬ LÝ XÓA
 // =================================================================
 
 export async function deleteImage(id) {
   if (!confirm("Bạn chắc muốn xóa ảnh này?")) return;
 
+  // Lưu ý: Cần thêm logic xóa tệp khỏi Firebase Storage nếu muốn xóa hoàn toàn.
+  
   await deleteDoc(doc(db, "images", id));
   images = images.filter(img => img.id !== id);
 
